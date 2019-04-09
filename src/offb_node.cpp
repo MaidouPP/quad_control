@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>
             ("mavros/set_mode");
 
-    //the setpoint publishing rate MUST be faster than 2Hz
+    // the setpoint publishing rate MUST be faster than 2Hz
     ros::Rate rate(20.0);
 
     // wait for FCU connection
@@ -45,12 +45,14 @@ int main(int argc, char **argv)
     pose.pose.position.y = 0;
     pose.pose.position.z = 2;
 
-    //send a few setpoints before starting
+    // send a few setpoints before starting
+    ROS_INFO("About to send setpoints.");
     for(int i = 100; ros::ok() && i > 0; --i){
         local_pos_pub.publish(pose);
         ros::spinOnce();
         rate.sleep();
     }
+    ROS_INFO("About to send setpoints.");
 
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
