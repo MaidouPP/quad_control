@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>quad_take_off</name>
+n  <name>quad_control</name>
   <version>0.0.0</version>
-  <description>The quad_take_off package</description>
+  <description>The quad_control package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -36,6 +36,8 @@
   <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>mavros_msgs</depend>
+  <depend>tf</depend>
+  <depend>gesture_recognition_client</depend>
   <!--   Note that this is equivalent to the following: -->
   <!--   <build_depend>roscpp</build_depend> -->
   <!--   <exec_depend>roscpp</exec_depend> -->
