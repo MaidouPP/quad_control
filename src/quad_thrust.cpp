@@ -6,9 +6,11 @@
 
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <mavros_msgs/AttitudeTarget.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/Thrust.h>
 
 mavros_msgs::State current_state;
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -24,6 +26,8 @@ int main(int argc, char **argv)
             ("mavros/state", 10, state_cb);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>
             ("mavros/setpoint_position/local", 10);
+    ros::Publisher local_att_pub = nh.advertise<mavros_msgs::AttitudeTarget>
+        ("mavros/setpoint_raw/attitude", 10);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>
             ("mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>
@@ -40,19 +44,14 @@ int main(int argc, char **argv)
     }
     ROS_INFO("Successfully connect to FCU.");
 
-    geometry_msgs::PoseStamped pose;
-    pose.pose.position.x = 0;
-    pose.pose.position.y = 0;
-    pose.pose.position.z = 0.1;
-
-    // send a few setpoints before starting
-    ROS_INFO("About to send setpoints.");
+    mavros_msgs::AttitudeTarget att_cmd;
+    att_cmd.thrust = 0.8;
     for(int i = 100; ros::ok() && i > 0; --i){
-        local_pos_pub.publish(pose);
-        ros::spinOnce();
-        rate.sleep();
+      local_att_pub.publish(att_cmd);
+      ros::spinOnce();
+      rate.sleep();
     }
-    ROS_INFO("About to send setpoints.");
+    ROS_INFO("About to send thrust command.");
 
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
@@ -81,7 +80,7 @@ int main(int argc, char **argv)
             }
         }
 
-        local_pos_pub.publish(pose);
+        local_att_pub.publish(att_cmd);
 
         ros::spinOnce();
         rate.sleep();
