@@ -38,7 +38,7 @@ n  <name>quad_control</name>
   <depend>geometry_msgs</depend>
   <depend>mavros_msgs</depend>
   <depend>tf</depend>
-  <depend>gesture_recognition_client</depend>
+  <!-- <depend>gesture_recognition_client</depend> -->
   <!--   Note that this is equivalent to the following: -->
   <!--   <build_depend>roscpp</build_depend> -->
   <!--   <exec_depend>roscpp</exec_depend> -->

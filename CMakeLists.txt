@@ -13,8 +13,7 @@ std_msgs
 geometry_msgs
 mavros_msgs
 tf
-gesture_recognition_client)
-
+)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -107,7 +106,7 @@ gesture_recognition_client)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES quad_control
-CATKIN_DEPENDS gesture_recognition_client
+# CATKIN_DEPENDS gesture_recognition_client
 #  DEPENDS system_lib
 )
 
@@ -135,9 +134,9 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_take_off_node src/offb_node.cpp)
-add_executable(${PROJECT_NAME}_thrust_node src/quad_thrust.cpp)
-add_executable(${PROJECT_NAME}_gesture_control_node src/gesture_control_node.cpp)
+# add_executable(${PROJECT_NAME}_take_off_node src/offb_node.cpp)
+# add_executable(${PROJECT_NAME}_thrust_node src/quad_thrust.cpp)
+# add_executable(${PROJECT_NAME}_gesture_control_node src/gesture_control_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -147,15 +146,15 @@ add_executable(${PROJECT_NAME}_gesture_control_node src/gesture_control_node.cpp
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(${PROJECT_NAME}_gesture_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(${PROJECT_NAME}_gesture_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_take_off_node
-   ${catkin_LIBRARIES}
-)
-target_link_libraries(${PROJECT_NAME}_gesture_control_node
-   ${catkin_LIBRARIES}
-)
-target_link_libraries(${PROJECT_NAME}_thrust_node
-   ${catkin_LIBRARIES}
-)
+# target_link_libraries(${PROJECT_NAME}_take_off_node
+#    ${catkin_LIBRARIES}
+# )
+# target_link_libraries(${PROJECT_NAME}_gesture_control_node
+#    ${catkin_LIBRARIES}
+# )
+# target_link_libraries(${PROJECT_NAME}_thrust_node
+#    ${catkin_LIBRARIES}
+# )

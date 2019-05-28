@@ -30,7 +30,7 @@ class Px4Controller(object):
         self._state = None
 
         # Subscribers
-        self._local_pose_sub = rospy.Subscriber("/mavros/local_position/pose", PoseStamped, self.LocalPoseCallback)
+        self._local_pose_sub = rospy.Subscriber("/mavros/vision_pose/pose", PoseStamped, self.LocalPoseCallback)
         self._state_sub = rospy.Subscriber("/mavros/state", State, self.MavrosStateCallback)
         self._target_position_sub = rospy.Subscriber("/offboard/set_pose/position", PoseStamped, self.SetTargetPositionCallback)
         self._target_heading_sub = rospy.Subscriber("/offboard/set_pose/orientation", Float32, self.SetTargetYawCallback)
