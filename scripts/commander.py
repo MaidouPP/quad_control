@@ -63,7 +63,7 @@ class Commander(object):
 
 if __name__ == "__main__":
     con = Commander()
-    con.Move(0, 0, 0)
+    con.Move(0, 0, 1)
     time.sleep(2)
     con.Move(1, 1, 1)
     time.sleep(2)

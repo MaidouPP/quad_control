@@ -10,14 +10,16 @@ from geometry_msgs.msg import PoseStamped, Twist
 from std_msgs.msg import Float32, Float64, String
 
 
-class Px4Controller:
-
+class Px4Controller(object):
     def __init__(self):
+        self.kDeadHeight = 1.0
+        rospy.init_node("px4_control_node")
+        self.rate = rospy.Rate(20)
 
         self._local_pose = None
         self._state = None
         self._curr_heading = 0.0
-        self._takeoff_height = 1.0
+        self._takeoff_height = 0.5
         self._armed = False
         self._landed = True
         self._offboard_mode = False
@@ -41,28 +43,25 @@ class Px4Controller:
         self._arm_service = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
         self._mode_service = rospy.ServiceProxy('/mavros/set_mode', SetMode)
 
-        print("Px4 Controller Initialized!")
+        print "Px4 Controller Initialized!"
 
 
     def Start(self):
-        rospy.init_node("px4_control_node")
-        rate = rospy.Rate(20)
-
         self._curr_target_pose = self._ConstructTarget(0, 0, self._takeoff_height, self._curr_heading)
 
         # print("self.cur_target_pose:", self.cur_target_pose, type(self.cur_target_pose))
 
         # Send way points and switch to arm+offboard to prepare for flying
-        for i in range(10):
+        for i in range(100):
             self._local_target_pub.publish(self._curr_target_pose)
             self._armed = self.EnableArm()
             self._offboard_mode = self.EnableOffboard()
-            rate.sleep()
+            self.rate.sleep()
 
         if self.CheckIfTakeoffed():
-            print("Vehicle Took Off!")
+            print "Vehicle Took Off!"
         else:
-            print("Vehicle Failed taking off!")
+            print "Vehicle Failed taking off!"
             return
 
         # Control loop
@@ -71,7 +70,7 @@ class Px4Controller:
             if self._state == "LAND" and self._local_pose.pose.position.z < 0.15:
                 if not self.EnableDisarm():
                     self.state = "DISARMED"
-            rate.sleep()
+            self.rate.sleep()
 
 
     def _ConstructTarget(self, x, y, z, yaw, yaw_rate=1):
@@ -105,11 +104,13 @@ class Px4Controller:
         q = Quaternion(ori.w, ori.x, ori.y, ori.z)
         self._curr_heading = q.yaw_pitch_roll[0]
 
-
-    # def GetCurrHeading(self):
-    #     ori = self._local_pose.pose.orientation
-    #     q = Quaternion(ori.w, ori.x, ori.y, ori.z)
-    #     self._curr_heading = q.yaw_pitch_roll[0]
+        # For safety
+        if msg.pose.position.z > self.kDeadHeight:
+            self._state = "LAND"
+            self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
+                                                           self._local_pose.pose.position.y,
+                                                           0.1,
+                                                           self._curr_heading)
 
 
     def MavrosStateCallback(self, msg):
@@ -134,7 +135,7 @@ class Px4Controller:
 
 
     def SetTargetPositionCallback(self, msg):
-        print("Received New Position Task!")
+        print "Received New Position Task!"
 
         if msg.header.frame_id == 'base_link':
             '''
@@ -148,7 +149,7 @@ class Px4Controller:
             #  +Y <------body
 
             self._frame = "BODY"
-            print("body FLU frame")
+            print "body FLU frame"
             FLU_x, FLU_y, FLU_z = self.BodyEnu2Flu(msg)
 
             body_x = FLU_x + self._local_pose.pose.position.x
@@ -170,7 +171,7 @@ class Px4Controller:
             #      |/
             #    world------> +X
             self._frame = "LOCAL_ENU"
-            print("local ENU frame")
+            print "local ENU frame"
             ENU_x, ENU_y, ENU_z = self.Body2Enu(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
 
             self._curr_target_pose = self._ConstructTarget(ENU_x,
@@ -178,29 +179,30 @@ class Px4Controller:
                                                            ENU_z,
                                                            self._curr_heading)
 
+
     '''
     Receive A Custom Activity
     '''
     def CustomActivityCallback(self, msg):
-        print("Received Custom Activity:", msg.data)
+        print "Received Custom Activity:", msg.data
 
         if msg.data == "LAND":
-            print("LANDING!")
+            print "LANDING!"
             self._state = "LAND"
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
-                                                           0.1,
+                                                           0.0,
                                                            self._curr_heading)
         elif msg.data == "HOVER":
-            print("HOVERING!")
+            print "HOVERING!"
             self._state = "HOVER"
             self.EnableHover()
         else:
-            print("Received Custom Activity:", msg.data, "not supported yet!")
+            print "Received Custom Activity:", msg.data, "not supported yet!"
 
 
     def SetTargetYawCallback(self, msg):
-        print("Received orientatino command!")
+        print "Received orientation command!"
 
         yaw_deg = msg.data * math.pi / 180.0
         self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
@@ -213,7 +215,7 @@ class Px4Controller:
         if self._arm_service(True):
             return True
         else:
-            print("Vehicle arming failed!")
+            print "Vehicle arming failed!"
             return False
 
 
@@ -221,7 +223,7 @@ class Px4Controller:
         if self._arm_service(False):
             return True
         else:
-            print("Vehicle disarming failed!")
+            print "Vehicle disarming failed!"
             return False
 
 
@@ -229,7 +231,7 @@ class Px4Controller:
         if self._mode_service(custom_mode='OFFBOARD'):
             return True
         else:
-            print("Vechile Offboard failed")
+            print "Vechile Offboard failed"
             return False
 
 
@@ -244,7 +246,7 @@ class Px4Controller:
         if self._local_pose.pose.position.z > 0.1 and self._offboard_mode and self._armed:
             return True
         else:
-            print(self._offboard_mode, " ", self._armed)
+            print self._offboard_mode, " ", self._armed
             return False
 
 
