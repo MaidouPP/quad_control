@@ -58,6 +58,10 @@ class Px4Controller(object):
             self._offboard_mode = self.EnableOffboard()
             self.rate.sleep()
 
+        if self._local_pose is None:
+            print "Local pose is None. Disarm now!"
+            self.EnableDisarm()
+
         if self.CheckIfTakeoffed():
             print "Vehicle Took Off!"
         else:
