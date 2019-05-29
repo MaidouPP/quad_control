@@ -134,7 +134,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_take_off_node src/offb_node.cpp)
+add_executable(${PROJECT_NAME}_take_off_node src/offb_node.cpp)
 # add_executable(${PROJECT_NAME}_thrust_node src/quad_thrust.cpp)
 # add_executable(${PROJECT_NAME}_gesture_control_node src/gesture_control_node.cpp)
 
@@ -149,9 +149,9 @@ include_directories(
 # add_dependencies(${PROJECT_NAME}_gesture_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_take_off_node
-#    ${catkin_LIBRARIES}
-# )
+target_link_libraries(${PROJECT_NAME}_take_off_node
+   ${catkin_LIBRARIES}
+)
 # target_link_libraries(${PROJECT_NAME}_gesture_control_node
 #    ${catkin_LIBRARIES}
 # )
