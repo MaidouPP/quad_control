@@ -139,8 +139,6 @@ class Px4Controller(object):
 
 
     def SetTargetPositionCallback(self, msg):
-        print "Received New Position Task!"
-
         if msg.header.frame_id == 'base_link':
             '''
             BODY_OFFSET_ENU
@@ -182,6 +180,7 @@ class Px4Controller(object):
                                                            ENU_y,
                                                            ENU_z,
                                                            self._curr_heading)
+        print "Received New Position Task! Set current target pose to: ", self._curr_target_pose
 
 
     '''
@@ -206,13 +205,12 @@ class Px4Controller(object):
 
 
     def SetTargetYawCallback(self, msg):
-        print "Received orientation command!"
-
         yaw_deg = msg.data * math.pi / 180.0
         self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                        self._local_pose.pose.position.y,
                                                        self._local_pose.pose.position.z,
                                                        yaw_deg)
+        print "Received orientation command! Set current target pose to: ", self._curr_target_pose
 
 
     def EnableArm(self):
