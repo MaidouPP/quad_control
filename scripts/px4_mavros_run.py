@@ -139,7 +139,7 @@ class Px4Controller(object):
         return ENU_x, ENU_y, ENU_z
 
 
-    def BodyEnu2Flu(self, msg):
+    def BodyEnu2OffsetEnu(self, msg):
         FLU_x = msg.pose.position.x * math.cos(self._curr_heading) - msg.pose.position.y * math.sin(self._curr_heading)
         FLU_y = msg.pose.position.x * math.sin(self._curr_heading) + msg.pose.position.y * math.cos(self._curr_heading)
         FLU_z = msg.pose.position.z
@@ -159,7 +159,7 @@ class Px4Controller(object):
             #            |/
             #  +Y <------body
             self._frame = "BODY"
-            x, y, z = self.BodyEnu2Flu(msg)
+            x, y, z = self.BodyEnu2OffsetEnu(msg)
 
             body_x = x + self._local_pose.pose.position.x
             body_y = y + self._local_pose.pose.position.y
