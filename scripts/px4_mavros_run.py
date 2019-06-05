@@ -12,7 +12,8 @@ from std_msgs.msg import Float32, Float64, String
 
 class Px4Controller(object):
     def __init__(self):
-        self.kDeadHeight = 4.0
+        self.kDeadHeight = 1.0
+        self.kDeadRange = 2.0
         rospy.init_node("px4_control_node")
         self.rate = rospy.Rate(20)
 
@@ -120,8 +121,11 @@ class Px4Controller(object):
         self._curr_heading = q.yaw_pitch_roll[0]
 
         # For safety
-        if msg.pose.position.z > self.kDeadHeight:
+        if msg.pose.position.z > self.kDeadHeight or \
+           math.fabs(msg.pose.position.x) > self.kDeadRange or \
+           math.fabs(msg.pose.position.y) > self.kDeadRange:
             self._state = "LAND"
+            print "Out of safety range. Landing..."
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
                                                            0.1,
