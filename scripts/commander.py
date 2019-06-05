@@ -43,13 +43,13 @@ class Commander(object):
         self.position_target_pub.publish(self.SetPose(0, 0, height, False))
 
 
-    def SetPose(self, x, y, z, BODY_OFFSET_ENU=True):
+    def SetPose(self, x, y, z, BODY_FLU=True):
         pose = PoseStamped()
         pose.header.stamp = rospy.Time.now()
 
         # ROS uses ENU internally, so we will stick to this convention
 
-        if BODY_OFFSET_ENU:
+        if BODY_FLU:
             pose.header.frame_id = 'base_link'
         else:
             pose.header.frame_id = 'map'
