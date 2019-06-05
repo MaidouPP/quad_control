@@ -12,7 +12,7 @@ from std_msgs.msg import Float32, Float64, String
 
 class Px4Controller(object):
     def __init__(self):
-        self.kDeadHeight = 1.0
+        self.kDeadHeight = 4.0
         rospy.init_node("px4_control_node")
         self.rate = rospy.Rate(20)
 
@@ -178,11 +178,12 @@ class Px4Controller(object):
             #      |/
             #    world------> +X
             self._frame = "LOCAL_ENU"
-            ENU_x, ENU_y, ENU_z = self.Body2Enu(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
+            # ENU_x, ENU_y, ENU_z = self.Body2Enu(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
+            # enu_x, enu_y, enu_z = msg.pose.position
 
-            self._curr_target_pose = self._ConstructTarget(ENU_x,
-                                                           ENU_y,
-                                                           ENU_z,
+            self._curr_target_pose = self._ConstructTarget(msg.pose.position.x,
+                                                           msg.pose.position.y,
+                                                           msg.pose.position.z,
                                                            self._curr_heading)
         print "Received New Position Task! Set current target pose to: ", self._curr_target_pose
 

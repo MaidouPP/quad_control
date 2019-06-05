@@ -14,14 +14,17 @@ import math
 class Commander(object):
     def __init__(self):
         rospy.init_node("commander_node")
-        self.rate = rospy.Rate(20)
-        self.position_target_pub = rospy.Publisher('/offboard/set_pose/position', PoseStamped, queue_size=10)
+        self.rate = rospy.Rate(40)
+        self.position_target_pub = rospy.Publisher('/offboard/set_pose/position', PoseStamped, queue_size=1)
         self.yaw_target_pub = rospy.Publisher('/offboard/set_pose/orientation', Float32, queue_size=10)
         self.custom_activity_pub = rospy.Publisher('/offboard/set_activity/type', String, queue_size=10)
 
 
     def Move(self, x, y, z, BODY_OFFSET_ENU=True):
-        self.position_target_pub.publish(self.SetPose(x, y, z, BODY_OFFSET_ENU=BODY_OFFSET_ENU))
+        for i in range(5):
+            self.position_target_pub.publish(self.SetPose(x, y, z, BODY_OFFSET_ENU=BODY_OFFSET_ENU))
+            print x, y, z
+            self.rate.sleep()
 
 
     def Turn(self, yaw_degree):
@@ -63,7 +66,7 @@ class Commander(object):
 
 if __name__ == "__main__":
     con = Commander()
-    con.Move(0, 0, 0, BODY_OFFSET_ENU=False)
+    con.Move(1, 0, 1, BODY_OFFSET_ENU=False)
     time.sleep(2)
     # con.Move(1, 1, 1)
     # time.sleep(2)
