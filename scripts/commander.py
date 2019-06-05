@@ -21,7 +21,7 @@ class Commander(object):
 
 
     def Move(self, x, y, z, BODY_OFFSET_ENU=True):
-        self.position_target_pub.publish(self.SetPose(x, y, z, BODY_OFFSET_ENU))
+        self.position_target_pub.publish(self.SetPose(x, y, z, BODY_OFFSET_ENU=BODY_OFFSET_ENU))
 
 
     def Turn(self, yaw_degree):
@@ -43,13 +43,13 @@ class Commander(object):
         self.position_target_pub.publish(self.SetPose(0, 0, height, False))
 
 
-    def SetPose(self, x, y, z, BODY_FLU=True):
+    def SetPose(self, x, y, z, BODY_OFFSET_ENU=True):
         pose = PoseStamped()
         pose.header.stamp = rospy.Time.now()
 
         # ROS uses ENU internally, so we will stick to this convention
 
-        if BODY_FLU:
+        if BODY_OFFSET_ENU:
             pose.header.frame_id = 'base_link'
         else:
             pose.header.frame_id = 'map'
@@ -63,8 +63,8 @@ class Commander(object):
 
 if __name__ == "__main__":
     con = Commander()
-    con.Move(0, 0, 1)
+    con.Move(0, 0, 0, BODY_OFFSET_ENU=False)
     time.sleep(2)
-    con.Move(1, 1, 1)
-    time.sleep(2)
-    con.Turn(90)
+    # con.Move(1, 1, 1)
+    # time.sleep(2)
+    # con.Turn(90)
