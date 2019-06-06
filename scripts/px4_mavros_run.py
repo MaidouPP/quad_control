@@ -13,7 +13,7 @@ from std_msgs.msg import Float32, Float64, String
 class Px4Controller(object):
     def __init__(self):
         self.kDeadHeight = 1.0
-        self.kDeadRange = 2.0
+        self.kDeadRange = 1.5
         rospy.init_node("px4_control_node")
         self.rate = rospy.Rate(20)
 
