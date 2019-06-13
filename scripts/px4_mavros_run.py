@@ -15,7 +15,7 @@ class Px4Controller(object):
         self.kDeadHeight = 1.0
         self.kDeadRange = 1.5
         rospy.init_node("px4_control_node")
-        self.rate = rospy.Rate(4)
+        self.rate = rospy.Rate(10)
 
         self._local_pose = None
         self._state = None
@@ -54,7 +54,7 @@ class Px4Controller(object):
 
 
     def Start(self, connection_wait_cycles=2, attempts_take_off=5,
-              arm_wait_cycles=10, target_pose_cycles=20):
+              arm_wait_cycles=10, target_pose_cycles=60):
         for i in range(connection_wait_cycles):
             if self._state_msg and self._state_msg.connected:
                 break
@@ -78,6 +78,7 @@ class Px4Controller(object):
             self._offboard_mode = self.EnableOffboard()
             if not self._offboard_mode:
                 continue
+            self.rate.sleep()
 
             # Take off command
             self._local_target_pub.publish(self._curr_target_pose)
@@ -90,6 +91,11 @@ class Px4Controller(object):
                               (self._local_pose.pose.position.z if
                                self._local_pose else -100))
                 self.rate.sleep()
+
+            # Exit the main loop if done
+            if self._local_pose and abs(self._local_pose.pose.position.z -
+                                        self._takeoff_height) < 0.1:
+                break
 
         if self._local_pose is None:
             rospy.logerr("Local pose is None. Disarm now!")
@@ -156,10 +162,10 @@ class Px4Controller(object):
             math.fabs(msg.pose.position.x) > self.kDeadRange or \
             math.fabs(msg.pose.position.y) > self.kDeadRange
            ):
-            rospy.loginfo("Out of safety range. Landing...", msg.pose.position.x,
+            rospy.loginfo("Out of safety range. Landing... %f, %f, %f", msg.pose.position.x,
                           msg.pose.position.y, msg.pose.position.z)
             mode_sent = self._mode_service(custom_mode="AUTO.LAND")
-            rospy.loginfo("AUTO.LAND: %d", mode_sent)
+            rospy.loginfo("AUTO.LAND: " + str(mode_sent))
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
                                                            0.1,
@@ -224,8 +230,9 @@ class Px4Controller(object):
                                                            msg.pose.position.y,
                                                            msg.pose.position.z,
                                                            self._curr_heading)
+        pos = self._curr_target_pose.position
         rospy.loginfo( "Received New Position Task! Set current target pose to: %f, %f, %f",
-                      self._curr_target_pose,x, self._curr_target_pose.y, self._curr_target_pose.z)
+                      pos.x, pos.y, pos.z)
 
 
     def CustomActivityCallback(self, msg):
@@ -233,7 +240,7 @@ class Px4Controller(object):
 
         if msg.data == "LAND":
             print "LANDING!"
-            self._state = "LAND"
+            self._mode_service(custom_mode = "AUTO.LAND")
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
                                                            0.0,

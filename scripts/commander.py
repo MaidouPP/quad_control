@@ -63,15 +63,15 @@ class Commander(object):
         return pose
 
 eight_trajectory = np.array([
-        [-0.3, -0.3, 0.3],
-        [-0.1, -0.3, 0.3],
-        [ 0.1,  0.3, 0.3],
-        [ 0.3,  0.3, 0.3],
-        [ 0.3, -0.3, 0.3],
-        [ 0.1, -0.3, 0.3],
-        [-0.1,  0.3, 0.3],
-        [-0.3,  0.3, 0.3],
-        [-0.3, -0.3, 0.3]])
+        [-0.3, -0.3, 0.5],
+        [-0.1, -0.3, 0.5],
+        [ 0.1,  0.3, 0.5],
+        [ 0.3,  0.3, 0.5],
+        [ 0.3, -0.3, 0.5],
+        [ 0.1, -0.3, 0.5],
+        [-0.1,  0.3, 0.5],
+        [-0.3,  0.3, 0.5],
+        [-0.3, -0.3, 0.5]])
 
 five_nine_traj = np.array([
     [ 0.0,  0.0,  0.5],
@@ -82,11 +82,12 @@ five_nine_traj = np.array([
 if __name__ == "__main__":
     con = Commander()
 
-    for _ in range(5):
+    for _ in range(3):
         for pos in eight_trajectory:
             con.Move(pos[0], pos[1], pos[2])
             time.sleep(2)
     time.sleep(2)
-    con.Land()
-    time.sleep(2)
+    rospy.loginfo("Landing ...")
     con.Move(0, 0, 0)
+    time.sleep(2)
+    con.Land()
