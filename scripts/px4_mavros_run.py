@@ -15,7 +15,7 @@ class Px4Controller(object):
         self.kDeadHeight = 1.0
         self.kDeadRange = 1.5
         rospy.init_node("px4_control_node")
-        self.rate = rospy.Rate(20)
+        self.rate = rospy.Rate(4)
 
         self._local_pose = None
         self._state = None
@@ -29,6 +29,7 @@ class Px4Controller(object):
         self._curr_target_pose = None
         self._frame = "BODY"
         self._state = None
+        self._state_msg = None
 
         # Subscribers
         self._local_pose_sub = rospy.Subscriber("/mavros/local_position/pose",
@@ -52,31 +53,61 @@ class Px4Controller(object):
         print "Px4 Controller Initialized!"
 
 
-    def Start(self):
+    def Start(self, connection_wait_cycles=2, attempts_take_off=5,
+              arm_wait_cycles=10, target_pose_cycles=20):
+        for i in range(connection_wait_cycles):
+            if self._state_msg and self._state_msg.connected:
+                break
+            rospy.loginfo("Waiting for px4 connection .. %d", i)
+            self.rate.sleep()
         self._curr_target_pose = self._ConstructTarget(0, 0, self._takeoff_height, self._curr_heading)
 
         # Send way points and switch to arm+offboard to prepare for flying
-        for i in range(100):
-            self._local_target_pub.publish(self._curr_target_pose)
+        for i in range(attempts_take_off):
+            rospy.loginfo("Trying : %d", i)
+
+            # Arm the motors
             self._armed = self.EnableArm()
+            for j in range(arm_wait_cycles):
+                if self._state_msg and self._state_msg.armed:
+                    break
+                rospy.loginfo("Waiting for arming ... %d", j)
+                self.rate.sleep()
+
+            # Enable offboard mode
             self._offboard_mode = self.EnableOffboard()
-            self.rate.sleep()
+            if not self._offboard_mode:
+                continue
+
+            # Take off command
+            self._local_target_pub.publish(self._curr_target_pose)
+            for _ in range(target_pose_cycles):
+                self._local_target_pub.publish(self._curr_target_pose)
+                if self._local_pose and abs(self._local_pose.pose.position.z -
+                                            self._takeoff_height) < 0.1:
+                    break
+                rospy.loginfo("Taking off ... z=%f",
+                              (self._local_pose.pose.position.z if
+                               self._local_pose else -100))
+                self.rate.sleep()
 
         if self._local_pose is None:
-            print "Local pose is None. Disarm now!"
+            rospy.logerr("Local pose is None. Disarm now!")
             self.EnableDisarm()
 
         if self.CheckIfTakeoffed():
-            print "Vehicle Took Off!"
+            rospy.loginfo("Vehicle Took Off!")
         else:
-            print "Vehicle Failed taking off!"
-            return
+            rospy.logerr("Vehicle Failed taking off!")
+            #return
 
         # Control loop
         while self._armed and self._offboard_mode and not rospy.is_shutdown():
             self._local_target_pub.publish(self._curr_target_pose)
-            if self._state == "LAND" and self._local_pose.pose.position.z < 0.15:
-                if not self.EnableDisarm():
+            if self._local_pose.pose.position.z < 0.15:
+                if not self._mode_service(custom_mode="AUTO.LAND"):
+                    rospy.logerr("Landing mode set failed")
+                if self.EnableDisarm():
                     self.state = "DISARMED"
             self.rate.sleep()
 
@@ -108,7 +139,7 @@ class Px4Controller(object):
                                     + PositionTarget.IGNORE_AFX + PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ \
                                     + PositionTarget.FORCE
 
-        target_raw_pose.yaw = yaw
+        target_raw_pose.yaw = 0 # yaw
         target_raw_pose.yaw_rate = yaw_rate
 
         return target_raw_pose
@@ -121,11 +152,14 @@ class Px4Controller(object):
         self._curr_heading = q.yaw_pitch_roll[0]
 
         # For safety
-        if msg.pose.position.z > self.kDeadHeight or \
-           math.fabs(msg.pose.position.x) > self.kDeadRange or \
-           math.fabs(msg.pose.position.y) > self.kDeadRange:
-            self._state = "LAND"
-            print "Out of safety range. Landing..."
+        if (msg.pose.position.z > self.kDeadHeight or \
+            math.fabs(msg.pose.position.x) > self.kDeadRange or \
+            math.fabs(msg.pose.position.y) > self.kDeadRange
+           ):
+            rospy.loginfo("Out of safety range. Landing...", msg.pose.position.x,
+                          msg.pose.position.y, msg.pose.position.z)
+            mode_sent = self._mode_service(custom_mode="AUTO.LAND")
+            rospy.loginfo("AUTO.LAND: %d", mode_sent)
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
                                                            0.1,
@@ -133,6 +167,7 @@ class Px4Controller(object):
 
 
     def MavrosStateCallback(self, msg):
+        self._state_msg = msg
         self._state = msg.mode
 
 
@@ -189,7 +224,8 @@ class Px4Controller(object):
                                                            msg.pose.position.y,
                                                            msg.pose.position.z,
                                                            self._curr_heading)
-        print "Received New Position Task! Set current target pose to: ", self._curr_target_pose
+        rospy.loginfo( "Received New Position Task! Set current target pose to: %f, %f, %f",
+                      self._curr_target_pose,x, self._curr_target_pose.y, self._curr_target_pose.z)
 
 
     def CustomActivityCallback(self, msg):
