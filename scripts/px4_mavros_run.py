@@ -13,8 +13,9 @@ from std_msgs.msg import Float32, Float64, String
 class Px4Controller(object):
     def __init__(self):
         self.kDeadHeight = 1.0
+        self.kDeadRange = 1.5
         rospy.init_node("px4_control_node")
-        self.rate = rospy.Rate(20)
+        self.rate = rospy.Rate(10)
 
         self._local_pose = None
         self._state = None
@@ -28,16 +29,22 @@ class Px4Controller(object):
         self._curr_target_pose = None
         self._frame = "BODY"
         self._state = None
+        self._state_msg = None
 
         # Subscribers
-        self._local_pose_sub = rospy.Subscriber("/mavros/local_position/pose", PoseStamped, self.LocalPoseCallback)
+        self._local_pose_sub = rospy.Subscriber("/mavros/local_position/pose",
+                                                PoseStamped, self.LocalPoseCallback)
         self._state_sub = rospy.Subscriber("/mavros/state", State, self.MavrosStateCallback)
-        self._target_position_sub = rospy.Subscriber("/offboard/set_pose/position", PoseStamped, self.SetTargetPositionCallback)
-        self._target_heading_sub = rospy.Subscriber("/offboard/set_pose/orientation", Float32, self.SetTargetYawCallback)
-        self._command_sub = rospy.Subscriber("/offboard/set_activity/type", String, self.CustomActivityCallback)
+        self._target_position_sub = rospy.Subscriber("/offboard/set_pose/position",
+                                                     PoseStamped, self.SetTargetPositionCallback)
+        self._target_heading_sub = rospy.Subscriber("/offboard/set_pose/orientation",
+                                                    Float32, self.SetTargetYawCallback)
+        self._command_sub = rospy.Subscriber("/offboard/set_activity/type", String,
+                                             self.CustomActivityCallback)
 
         # Publishers
-        self._local_target_pub = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget, queue_size=10)
+        self._local_target_pub = rospy.Publisher('/mavros/setpoint_raw/local',
+                                                 PositionTarget, queue_size=10)
 
         # Service
         self._arm_service = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
@@ -46,29 +53,67 @@ class Px4Controller(object):
         print "Px4 Controller Initialized!"
 
 
-    def Start(self):
+    def Start(self, connection_wait_cycles=2, attempts_take_off=5,
+              arm_wait_cycles=10, target_pose_cycles=60):
+        for i in range(connection_wait_cycles):
+            if self._state_msg and self._state_msg.connected:
+                break
+            rospy.loginfo("Waiting for px4 connection .. %d", i)
+            self.rate.sleep()
         self._curr_target_pose = self._ConstructTarget(0, 0, self._takeoff_height, self._curr_heading)
 
-        # print("self.cur_target_pose:", self.cur_target_pose, type(self.cur_target_pose))
-
         # Send way points and switch to arm+offboard to prepare for flying
-        for i in range(100):
-            self._local_target_pub.publish(self._curr_target_pose)
+        for i in range(attempts_take_off):
+            rospy.loginfo("Trying : %d", i)
+
+            # Arm the motors
             self._armed = self.EnableArm()
+            for j in range(arm_wait_cycles):
+                if self._state_msg and self._state_msg.armed:
+                    break
+                rospy.loginfo("Waiting for arming ... %d", j)
+                self.rate.sleep()
+
+            # Enable offboard mode
             self._offboard_mode = self.EnableOffboard()
+            if not self._offboard_mode:
+                continue
             self.rate.sleep()
 
+            # Take off command
+            self._local_target_pub.publish(self._curr_target_pose)
+            for _ in range(target_pose_cycles):
+                self._local_target_pub.publish(self._curr_target_pose)
+                if self._local_pose and abs(self._local_pose.pose.position.z -
+                                            self._takeoff_height) < 0.1:
+                    break
+                rospy.loginfo("Taking off ... z=%f",
+                              (self._local_pose.pose.position.z if
+                               self._local_pose else -100))
+                self.rate.sleep()
+
+            # Exit the main loop if done
+            if self._local_pose and abs(self._local_pose.pose.position.z -
+                                        self._takeoff_height) < 0.1:
+                break
+
+        if self._local_pose is None:
+            rospy.logerr("Local pose is None. Disarm now!")
+            self.EnableDisarm()
+
         if self.CheckIfTakeoffed():
-            print "Vehicle Took Off!"
+            rospy.loginfo("Vehicle Took Off!")
         else:
-            print "Vehicle Failed taking off!"
-            return
+            rospy.logerr("Vehicle Failed taking off!")
+            #return
 
         # Control loop
         while self._armed and self._offboard_mode and not rospy.is_shutdown():
             self._local_target_pub.publish(self._curr_target_pose)
-            if self._state == "LAND" and self._local_pose.pose.position.z < 0.15:
-                if not self.EnableDisarm():
+            if self._local_pose.pose.position.z < 0.15:
+                if not self._mode_service(custom_mode="AUTO.LAND"):
+                    rospy.logerr("Landing mode set failed")
+                if self.EnableDisarm():
                     self.state = "DISARMED"
             self.rate.sleep()
 
@@ -77,11 +122,19 @@ class Px4Controller(object):
         target_raw_pose = PositionTarget()
         target_raw_pose.header.stamp = rospy.Time.now()
 
-        # uint8 coordinate_frame
-        # FRAME_LOCAL_NED = 1
-        # FRAME_LOCAL_OFFSET_NED = 7
-        # FRAME_BODY_NED = 8
-        # FRAME_BODY_OFFSET_NED = 9
+        """
+        reference: https://github.com/PX4/Devguide/blob/master/en/ros/external_position_estimation.md
+
+        PX4 uses FRD (X Forward, Y Right and Z Down) for the local body frame,
+        and NED (X North, Y East, Z Down) for the local world frame -
+        set in MAVLink using MAV_FRAME_BODY_OFFSET_NED and MAV_FRAME_LOCAL_NED, respectively.
+
+        uint8 coordinate_frame
+        FRAME_LOCAL_NED = 1
+        FRAME_LOCAL_OFFSET_NED = 7
+        FRAME_BODY_NED = 8
+        FRAME_BODY_OFFSET_NED = 9
+        """
         target_raw_pose.coordinate_frame = 9
 
         target_raw_pose.position.x = x
@@ -92,7 +145,7 @@ class Px4Controller(object):
                                     + PositionTarget.IGNORE_AFX + PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ \
                                     + PositionTarget.FORCE
 
-        target_raw_pose.yaw = yaw
+        target_raw_pose.yaw = 0 # yaw
         target_raw_pose.yaw_rate = yaw_rate
 
         return target_raw_pose
@@ -105,8 +158,14 @@ class Px4Controller(object):
         self._curr_heading = q.yaw_pitch_roll[0]
 
         # For safety
-        if msg.pose.position.z > self.kDeadHeight:
-            self._state = "LAND"
+        if (msg.pose.position.z > self.kDeadHeight or \
+            math.fabs(msg.pose.position.x) > self.kDeadRange or \
+            math.fabs(msg.pose.position.y) > self.kDeadRange
+           ):
+            rospy.loginfo("Out of safety range. Landing... %f, %f, %f", msg.pose.position.x,
+                          msg.pose.position.y, msg.pose.position.z)
+            mode_sent = self._mode_service(custom_mode="AUTO.LAND")
+            rospy.loginfo("AUTO.LAND: " + str(mode_sent))
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
                                                            0.1,
@@ -114,6 +173,7 @@ class Px4Controller(object):
 
 
     def MavrosStateCallback(self, msg):
+        self._state_msg = msg
         self._state = msg.mode
 
 
@@ -121,49 +181,41 @@ class Px4Controller(object):
         ENU_x = body_target_y
         ENU_y = -body_target_x
         ENU_z = body_target_z
-
         return ENU_x, ENU_y, ENU_z
 
 
-    def BodyEnu2Flu(self, msg):
-
+    def BodyEnu2OffsetEnu(self, msg):
         FLU_x = msg.pose.position.x * math.cos(self._curr_heading) - msg.pose.position.y * math.sin(self._curr_heading)
         FLU_y = msg.pose.position.x * math.sin(self._curr_heading) + msg.pose.position.y * math.cos(self._curr_heading)
         FLU_z = msg.pose.position.z
-
         return FLU_x, FLU_y, FLU_z
 
 
     def SetTargetPositionCallback(self, msg):
-        print "Received New Position Task!"
-
+        """
+        See reference https://dev.px4.io/en/ros/external_position_estimation.html
+        """
         if msg.header.frame_id == 'base_link':
-            '''
-            BODY_OFFSET_ENU
-            '''
+            # BODY_OFFSET_ENU
             # For Body frame, we will use FLU (Forward, Left and Up)
             #           +Z     +X
             #            ^    ^
             #            |  /
             #            |/
             #  +Y <------body
-
             self._frame = "BODY"
-            print "body FLU frame"
-            FLU_x, FLU_y, FLU_z = self.BodyEnu2Flu(msg)
+            x, y, z = self.BodyEnu2OffsetEnu(msg)
 
-            body_x = FLU_x + self._local_pose.pose.position.x
-            body_y = FLU_y + self._local_pose.pose.position.y
-            body_z = FLU_z + self._local_pose.pose.position.z
+            body_x = x + self._local_pose.pose.position.x
+            body_y = y + self._local_pose.pose.position.y
+            body_z = z + self._local_pose.pose.position.z
 
             self._curr_target_pose = self._ConstructTarget(body_x,
-                                                            body_y,
-                                                            body_z,
-                                                            self._curr_heading)
+                                                           body_y,
+                                                           body_z,
+                                                           self._curr_heading)
         else:
-            '''
-            LOCAL_ENU
-            '''
+            # LOCAL_ENU
             # For world frame, we will use ENU (EAST, NORTH and UP)
             #     +Z     +Y
             #      ^    ^
@@ -171,24 +223,24 @@ class Px4Controller(object):
             #      |/
             #    world------> +X
             self._frame = "LOCAL_ENU"
-            print "local ENU frame"
-            ENU_x, ENU_y, ENU_z = self.Body2Enu(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
+            # ENU_x, ENU_y, ENU_z = self.Body2Enu(msg.pose.position.x, msg.pose.position.y, msg.pose.position.z)
+            # enu_x, enu_y, enu_z = msg.pose.position
 
-            self._curr_target_pose = self._ConstructTarget(ENU_x,
-                                                           ENU_y,
-                                                           ENU_z,
+            self._curr_target_pose = self._ConstructTarget(msg.pose.position.x,
+                                                           msg.pose.position.y,
+                                                           msg.pose.position.z,
                                                            self._curr_heading)
+        pos = self._curr_target_pose.position
+        rospy.loginfo( "Received New Position Task! Set current target pose to: %f, %f, %f",
+                      pos.x, pos.y, pos.z)
 
 
-    '''
-    Receive A Custom Activity
-    '''
     def CustomActivityCallback(self, msg):
         print "Received Custom Activity:", msg.data
 
         if msg.data == "LAND":
             print "LANDING!"
-            self._state = "LAND"
+            self._mode_service(custom_mode = "AUTO.LAND")
             self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                            self._local_pose.pose.position.y,
                                                            0.0,
@@ -202,13 +254,12 @@ class Px4Controller(object):
 
 
     def SetTargetYawCallback(self, msg):
-        print "Received orientation command!"
-
         yaw_deg = msg.data * math.pi / 180.0
         self._curr_target_pose = self._ConstructTarget(self._local_pose.pose.position.x,
                                                        self._local_pose.pose.position.y,
                                                        self._local_pose.pose.position.z,
                                                        yaw_deg)
+        print "Received orientation command! Set current target pose to: ", self._curr_target_pose
 
 
     def EnableArm(self):
