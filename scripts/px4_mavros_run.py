@@ -53,7 +53,7 @@ class Px4Controller(object):
         print "Px4 Controller Initialized!"
 
 
-    def Start(self, connection_wait_cycles=2, attempts_take_off=5,
+    def Start(self, connection_wait_cycles=20, attempts_take_off=5,
               arm_wait_cycles=10, target_pose_cycles=60):
         for i in range(connection_wait_cycles):
             if self._state_msg and self._state_msg.connected:
