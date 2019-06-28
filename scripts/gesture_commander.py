@@ -7,6 +7,16 @@ import time
 from commander import Commander
 from gesture_recognition_client.msg import Gesture
 
+eight_trajectory = np.array([
+        [-0.3, -0.3, 0.3],
+        [-0.1, -0.3, 0.3],
+        [ 0.1,  0.3, 0.3],
+        [ 0.3,  0.3, 0.3],
+        [ 0.3, -0.3, 0.3],
+        [ 0.1, -0.3, 0.3],
+        [-0.1,  0.3, 0.3],
+        [-0.3,  0.3, 0.3],
+        [-0.3, -0.3, 0.3]])
 
 class GestureCommander(Commander):
     def __init__(self):
@@ -24,15 +34,17 @@ class GestureCommander(Commander):
         self._next_send_time = time.time() + self._send_interval
 
         if msg.gesture_name == "left_up":
-            self.Move(0, 0, 0.2)
+            self.Move(eight_trajectory[0][0], eight_trajectory[0][1], eight_trajectory[0][2])
+            # self.Move(0, 0, 0.2)
         elif msg.gesture_name == "right_up":
-            self.Move(0, 0, -0.2)
+            self.Move(eight_trajectory[1][0], eight_trajectory[1][1], eight_trajectory[1][2])
+            # self.Move(0, 0, -0.2)
         elif msg.gesture_name == "go_left":
-            self.Turn(30)
+            self.Turn(45)
         elif msg.gesture_name == "go_right":
-            self.Turn(-30)
+            self.Turn(-45)
         elif msg.gesture_name == "left_up_right_up":
-            self.Move(0.2, 0, 0)
+            self.Move(0, 0, 0.7)
         elif msg.gesture_name == "cross":
             self.Land()
         else:
