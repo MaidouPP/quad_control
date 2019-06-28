@@ -145,7 +145,7 @@ class Px4Controller(object):
                                     + PositionTarget.IGNORE_AFX + PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ \
                                     + PositionTarget.FORCE
 
-        target_raw_pose.yaw = 0 # yaw
+        target_raw_pose.yaw = yaw # yaw
         target_raw_pose.yaw_rate = yaw_rate
 
         return target_raw_pose

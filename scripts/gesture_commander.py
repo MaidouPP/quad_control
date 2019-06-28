@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import numpy as np
 import rospy
 import sys
 import time
@@ -34,15 +35,15 @@ class GestureCommander(Commander):
         self._next_send_time = time.time() + self._send_interval
 
         if msg.gesture_name == "left_up":
-            self.Move(eight_trajectory[0][0], eight_trajectory[0][1], eight_trajectory[0][2])
+            self.Move(-0.5, 0.5, 0.3)
             # self.Move(0, 0, 0.2)
         elif msg.gesture_name == "right_up":
-            self.Move(eight_trajectory[1][0], eight_trajectory[1][1], eight_trajectory[1][2])
+            self.Move(0.5, -0.5, 0.3)
             # self.Move(0, 0, -0.2)
         elif msg.gesture_name == "go_left":
-            self.Turn(45)
+            self.Turn(60)
         elif msg.gesture_name == "go_right":
-            self.Turn(-45)
+            self.Turn(-60)
         elif msg.gesture_name == "left_up_right_up":
             self.Move(0, 0, 0.7)
         elif msg.gesture_name == "cross":
